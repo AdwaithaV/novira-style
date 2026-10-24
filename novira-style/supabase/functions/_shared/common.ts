@@ -1,0 +1,14 @@
+import { createClient } from 'npm:@supabase/supabase-js@2';
+const base = Deno.env.get('SUPABASE_URL')!;
+const anon = Deno.env.get('SUPABASE_ANON_KEY')!;
+const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+export const admin = createClient(base, service, {auth:{persistSession:false}});
+export const cors = {'Access-Control-Allow-Origin': Deno.env.get('STOREFRONT_ORIGIN') || 'https://novira-style.adwaithav063.workers.dev', 'Access-Control-Allow-Headers':'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods':'POST,OPTIONS'};
+export function json(data:unknown,status=200){return new Response(JSON.stringify(data),{status,headers:{...cors,'content-type':'application/json'}})}
+export function err(e:unknown){console.error(e);return json({error: e instanceof Error?e.message:'Unexpected error'},400)}
+export async function getUser(req:Request){const authorization=req.headers.get('Authorization')||'';const jwt=authorization.replace(/^Bearer\s+/i,'');if(!jwt)throw Error('Please sign in first');const sb=createClient(base,anon,{global:{headers:{Authorization:`Bearer ${jwt}`}},auth:{persistSession:false}});const {data,error}=await sb.auth.getUser(jwt);if(error||!data.user?.email_confirmed_at)throw Error('Please verify your email');return data.user;}
+export async function razor(path:string,init:RequestInit={}){const id=Deno.env.get('RAZORPAY_KEY_ID');const secret=Deno.env.get('RAZORPAY_KEY_SECRET');if(!id||!secret)throw Error('Payment gateway not configured');const res=await fetch(`https://api.razorpay.com/v1/${path}`,{...init,headers:{'Authorization':`Basic ${btoa(`${id}:${secret}`)}`,'Content-Type':'application/json',...(init.headers||{})}});const data=await res.json();if(!res.ok)throw Error(`Razorpay API error (${res.status}): ${data?.error?.description||'Request failed'}`);return data;}
+export async function hmacHex(message:string,secret:string){const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const sig=await crypto.subtle.sign('HMAC',k,new TextEncoder().encode(message));return [...new Uint8Array(sig)].map(b=>b.toString(16).padStart(2,'0')).join('')}
+export function equalHex(a:string,b:string){if(!/^[0-9a-f]{64}$/i.test(a)||!/^[0-9a-f]{64}$/i.test(b))return false;let diff=0;for(let i=0;i<64;i++)diff|=a.charCodeAt(i)^b.charCodeAt(i);return diff===0;}
+export async function verifyCaptured(paymentId:string,expectedOrderId:string,expectedAmount:number){const p=await razor(`payments/${encodeURIComponent(paymentId)}`);if(p.order_id!==expectedOrderId||p.amount!==expectedAmount||p.currency!=='INR'||p.status!=='captured')throw Error('Payment not captured or does not match the order');return p;}
+export async function attemptExpire(){const {error}=await admin.rpc('novira_expire_checkouts');if(error)throw error;}

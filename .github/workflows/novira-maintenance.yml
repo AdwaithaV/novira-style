@@ -1,0 +1,23 @@
+name: NOVIRA payment maintenance
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Release expired reservations
+        env:
+          PROJECT_REF: ${{ secrets.NOVIRA_SUPABASE_PROJECT_REF }}
+          CRON_SECRET: ${{ secrets.NOVIRA_CRON_SECRET }}
+        run: |
+          test -n "$PROJECT_REF" && test -n "$CRON_SECRET"
+          curl --fail-with-body --retry 2 -X POST "https://${PROJECT_REF}.supabase.co/functions/v1/expire-checkouts" -H "x-cron-secret: ${CRON_SECRET}"
+      - name: Send queued emails
+        env:
+          PROJECT_REF: ${{ secrets.NOVIRA_SUPABASE_PROJECT_REF }}
+          CRON_SECRET: ${{ secrets.NOVIRA_CRON_SECRET }}
+        run: |
+          curl --fail-with-body --retry 2 -X POST "https://${PROJECT_REF}.supabase.co/functions/v1/send-order-emails" -H "x-cron-secret: ${CRON_SECRET}"

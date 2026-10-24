@@ -1,0 +1,10 @@
+[functions.checkout-start]
+verify_jwt = true
+[functions.payment-confirm]
+verify_jwt = true
+[functions.razorpay-webhook]
+verify_jwt = false
+[functions.expire-checkouts]
+verify_jwt = false
+[functions.send-order-emails]
+verify_jwt = false
