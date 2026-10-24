@@ -2,7 +2,7 @@
   "name": "novira-style",
   "compatibility_date": "2026-10-19",
   "assets": {
-    "directory": "./dist",
+    "directory": "./novira-style/dist",
     "not_found_handling": "single-page-application"
   }
 }
